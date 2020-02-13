@@ -1,0 +1,19 @@
+---
+image:
+  repository: registry.gitlab.korzhenko.info/otus-ops/apps/search_engine_crawler
+  tag: latest
+
+service:
+  internalPort: 8000
+  externalPort: 8000
+
+mongoHost:
+mongoPort:
+mongoPass:
+rmqHost:
+rmqQueue:
+rmqUser:
+rmqPass:
+checkInt:
+url:
+excludeUrl:

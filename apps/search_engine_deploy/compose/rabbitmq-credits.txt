@@ -1,0 +1,22 @@
+  Credentials:
+
+    Username            : guest
+    Password            : $(kubectl get secret --namespace rabbit sartorial-billygoat-rabbitmq-ha -o jsonpath="{.data.rabbitmq-password}" | base64 --decode)
+    Management username : management
+    Management password : $(kubectl get secret --namespace rabbit sartorial-billygoat-rabbitmq-ha -o jsonpath="{.data.rabbitmq-management-password}" | base64 --decode)
+    ErLang Cookie       : $(kubectl get secret --namespace rabbit sartorial-billygoat-rabbitmq-ha -o jsonpath="{.data.rabbitmq-erlang-cookie}" | base64 --decode)
+
+  RabbitMQ can be accessed within the cluster on port 5672 at sartorial-billygoat-rabbitmq-ha.rabbit.svc.cluster.local
+
+  To access the cluster externally execute the following commands:
+
+    export NODE_IP=$(kubectl get nodes --namespace rabbit -o jsonpath="{.items[0].status.addresses[?(@.type=='ExternalIP')].address}")
+    export NODE_PORT_AMQP=$(kubectl get --namespace rabbit -o jsonpath='{.spec.ports[?(@.name=="amqp")].nodePort}' services sartorial-billygoat-rabbitmq-ha)
+    export NODE_PORT_STATS=$(kubectl get --namespace rabbit -o jsonpath='{.spec.ports[?(@.name=="http")].nodePort}' services sartorial-billygoat-rabbitmq-ha)  
+  To Access the RabbitMQ AMQP port:
+
+    amqp://$NODE_IP:$NODE_PORT_AMQP/ 
+
+  To Access the RabbitMQ Management interface:
+
+    http://$NODE_IP:$NODE_PORT_STATS/

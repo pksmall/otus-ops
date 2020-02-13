@@ -1,0 +1,60 @@
+version: '3.3'
+services:
+#  rabbitqm:
+#    image: rabbitmq:latest
+#    ports:
+#     - 5672:5672
+#    networks:
+#      back_net:
+#        aliases:
+#            - rabbit
+
+  mongodb:
+    image: bitnami/mongodb:4.0.14
+    ports:
+     - 27017:27017
+    environment:
+     - MONGODB_ROOT_PASSWORD=mongo-root-password
+    volumes:
+      - /tmp/mongodb:/data/db
+    networks:
+      back_net:
+        aliases:
+            - ui_db
+            - crawler_db
+
+  ui:
+    image: ui
+    #image: ${USERNAME}/search_engine_ui:${UI_VER}
+    environment:
+      - MONGO=ui_db
+    depends_on:
+      - mongodb
+    ports:
+      - ${UI_PORT_FRONT}:${UI_PORT_BACK}/tcp
+    networks:
+      - front_net
+      - back_net
+
+  crawler:
+    image: craw
+    #image: ${USERNAME}/search_engine_crawler:${CRAWLER_VER}
+    environment:
+      - MONGO=crawler_db
+      - RMQ_HOST=35.197.19.215
+      - RMQ_PORT=31706
+      - RMQ_USERNAME=user
+      - RMQ_PASSWORD=rabbit-password
+      - CHECK_INTERVAL=600
+    depends_on:
+#      - rabbitqm
+      - mongodb
+    networks:
+      - back_net
+
+volumes:
+  post_db:
+
+networks:
+  front_net:
+  back_net:

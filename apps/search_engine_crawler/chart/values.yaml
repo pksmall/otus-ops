@@ -1,0 +1,30 @@
+---
+image:
+  repository: registry.gitlab.korzhenko.info/otus-ops/apps/search_engine_crawler
+  tag: latest
+
+service:
+  internalPort: 5000
+  externalPort: 5000
+
+mangoHost:
+mangoPort:
+rmqHost:
+rmqQueue:
+rmqUser:
+rmqPass:
+checkInt:
+url:
+excludeUrl:
+gitlab:
+  app:
+  env:
+  envName:
+  envURL:
+application:
+  track: stable
+  tier: web
+  migrateCommand:
+  initializeCommand:
+  secretName:
+  secretChecksum:

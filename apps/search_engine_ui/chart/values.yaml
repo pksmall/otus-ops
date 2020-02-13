@@ -1,0 +1,28 @@
+---
+service:
+  internalPort: 8000
+  externalPort: 8000
+  host:
+  commonName:
+
+image:
+  repository: registry.gitlab.korzhenko.info/otus-ops/apps/search_engine_ui
+  tag: latest
+
+ingress:
+  class: gcp
+
+mongoHost:
+mongoPort:
+gitlab:
+  app:
+  env:
+  envName:
+  envURL:
+application:
+  track: stable
+  tier: web
+  migrateCommand:
+  initializeCommand:
+  secretName:
+  secretChecksum:

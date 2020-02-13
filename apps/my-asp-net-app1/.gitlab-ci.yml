@@ -1,0 +1,18 @@
+include:
+  - template: Auto-DevOps.gitlab-ci.yml
+
+variables:
+  DEPENDENCY_SCANNING_DISABLED: "true"
+  REPLICAS: 3
+
+test:
+  stage: test
+  image: mcr.microsoft.com/dotnet/core/sdk
+  script:
+    - 'dotnet test --no-restore'
+
+license_management:
+  stage: test
+  before_script:
+    - sudo apt-get update
+    - sudo apt-get install -y dotnet-runtime-3.1 dotnet-sdk-3.1

@@ -1,0 +1,97 @@
+image:
+  name: hashicorp/terraform:light
+  entrypoint:
+    - '/usr/bin/env'
+    - 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+
+# Default output file for Terraform plan
+variables:
+  DOCKER_TLS_CERTDIR: ""
+  PLAN: plan.tfplan
+  TF_IN_AUTOMATION: "true"
+
+cache:
+  key: "$CI_COMMIT_REF_SLUG"
+  paths:
+    - .terraform
+
+before_script:
+  - terraform --version
+  - terraform init
+  - apk add --update curl
+
+stages:
+  - validate
+  - refresh
+  - plan
+  - apply
+  - destroy
+
+validate:
+  stage: validate
+  script:
+    - terraform validate
+    - terraform fmt -check=true
+  only:
+    - branches
+
+merge review:
+  stage: plan
+  script:
+    - terraform plan -out=$PLAN
+    - echo \`\`\`diff > plan.txt
+    - terraform show -no-color ${PLAN} | tee -a plan.txt
+    - echo \`\`\` >> plan.txt
+    - sed -i -e 's/  +/+/g' plan.txt
+    - sed -i -e 's/  ~/~/g' plan.txt
+    - sed -i -e 's/  -/-/g' plan.txt
+    - MESSAGE=$(cat plan.txt)
+    - >-
+      curl -X POST -g -H "PRIVATE-TOKEN: ${GITLAB_TOKEN}" 
+      --data-urlencode "body=${MESSAGE}" 
+      "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/merge_requests/${CI_MERGE_REQUEST_IID}/discussions"
+  artifacts:
+    name: plan
+    paths:
+      - $PLAN
+  only:
+    - merge_requests
+
+plan production:
+  stage: plan
+  script:
+    - terraform plan -out=$PLAN
+  artifacts:
+    name: plan
+    paths:
+      - $PLAN
+  only:
+    - master
+
+apply:
+  stage: apply
+  script:
+    - terraform apply -input=false $PLAN
+  dependencies:
+    - plan production
+  artifacts:
+    name: $CI_COMMIT_REF_SLUG
+    untracked: true
+  only:
+    - master
+
+refresh:
+  stage: refresh
+  script:
+    - terraform refresh
+  when: manual
+  only:
+    - master
+
+destroy:
+  stage: destroy
+  script:
+    - terraform destroy -auto-approve
+  when: manual
+  only:
+    - master

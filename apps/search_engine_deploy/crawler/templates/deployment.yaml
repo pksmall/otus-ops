@@ -1,0 +1,74 @@
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ template "fullname" . }}
+  annotations:
+  {{ if .Values.global.gitlab.app }}app.gitlab.com/app: {{ .Values.global.gitlab.app | quote }}{{ end }}
+  {{ if .Values.global.gitlab.env }}app.gitlab.com/env: {{ .Values.global.gitlab.env | quote }}{{ end }}
+  labels:
+    app: {{ template "appname" . }}
+    component: {{ .Chart.Name }}
+    release: {{ .Release.Name }}
+    track: "{{ .Values.global.application.track }}"
+    tier: "{{ .Values.global.application.tier }}"
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ template "appname" . }}
+      component: {{ .Chart.Name }}
+      release: {{ .Release.Name }}
+      track: "{{ .Values.global.application.track }}"
+      tier: "{{ .Values.global.application.tier }}"
+  template:
+    metadata:
+      name: {{ .Chart.Name }}
+      annotations:
+        checksum/application-secrets: "{{ .Values.global.application.secretChecksum }}"
+        {{ if .Values.global.gitlab.app }}app.gitlab.com/app: {{ .Values.global.gitlab.app | quote }}{{ end }}
+        {{ if .Values.global.gitlab.env }}app.gitlab.com/env: {{ .Values.global.gitlab.env | quote }}{{ end }}
+      labels:
+        app: {{ template "appname" . }}
+        component: {{ .Chart.Name }}
+        release: {{ .Release.Name }}
+        track: "{{ .Values.global.application.track }}"
+        tier: "{{ .Values.global.application.tier }}"
+    spec:
+      imagePullSecrets:
+      {{ toYaml .Values.image.secrets | indent 10 }}
+      containers:
+      - image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        name: {{ .Chart.Name }}
+        ports:
+        - containerPort: {{ .Values.service.internalPort }}
+          name: {{ .Chart.Name }}
+          protocol: TCP
+        env:
+        - name: GITLAB_ENVIRONMENT_NAME
+          value: {{ .Values.global.gitlab.envName }}
+        - name: GITLAB_ENVIRONMENT_URL
+          value: {{ .Values.global.gitlab.envURL }}
+        - name: MONGO
+          value: {{ .Values.mongoHost | default (printf "%s-mongodb" .Release.Name) }}
+        - name: MONGO_PORT
+          value: {{ .Values.mongoPort | default "27017" | quote }}
+        - name: MONGO_PASSWORD
+          value: {{ .Values.mongoPass | default "mongo-root-password" | quote }}
+        - name: RMQ_HOST
+          value: {{ .Values.rmqHost | default "35.197.19.215" | quote }}
+        - name: RMQ_PORT
+          value: {{ .Values.rmqHost | default "31706" | quote }}
+        - name: RMQ_VHOST
+          value: {{ .Values.rmqHost | default "/" | quote }}
+        - name: RMQ_QUEUE
+          value: {{ .Values.rmqQueue | default "urls" | quote }}
+        - name: RMQ_USERNAME
+          value: {{ .Values.rmqUser | default "user" | quote }}
+        - name: RMQ_PASSWORD
+          value: {{ .Values.rmqPass | default "rabbit-password" | quote }}
+        - name: CHECKINTERVAL
+          value: {{ .Values.checkInt | default "600" | quote }}
+        - name: EXCLUDE_URLS
+          value: {{ .Values.excludeUrl | default ".*github.com" | quote }}

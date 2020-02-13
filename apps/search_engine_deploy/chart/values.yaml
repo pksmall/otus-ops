@@ -1,0 +1,48 @@
+---
+gitlab:
+  app:
+  env:
+  envName:
+  envURL:
+application:
+  track: stable
+  tier: web
+  migrateCommand:
+  initializeCommand:
+  secretName:
+  secretChecksum:
+
+global:
+  gitlab:
+    app:
+    env:
+    envName:
+    envURL:
+  application:
+    track: stable
+    tier: web
+    migrateCommand:
+    initializeCommand:
+    secretName:
+    secretChecksum:
+
+crawler:
+  image:
+    repository: registry.gitlab.korzhenko.info/otus-ops/apps/search_engine_crawler
+    tag: latest
+  prometheus:
+    metrics: true
+
+ui:
+  image:
+    repository: registry.gitlab.korzhenko.info/otus-ops/apps/search_engine_ui
+    tag: latest
+  service:
+    externalPort: 8000
+  prometheus:
+    metrics: true
+
+mongodb:
+  prometheus:
+    metrics: true
+  mongodbRootPassword: mongo-root-password

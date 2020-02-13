@@ -1,0 +1,72 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "crawler.fullname" . }}
+  annotations:
+  {{ if .Values.gitlab.app }}app.gitlab.com/app: {{ .Values.gitlab.app | quote }}{{ end }}
+  {{ if .Values.gitlab.env }}app.gitlab.com/env: {{ .Values.gitlab.env | quote }}{{ end }}
+  labels:
+    app: search-engine
+    component: crawler
+    release: {{ .Release.Name }}
+    track: "{{ .Values.application.track }}"
+    tier: "{{ .Values.application.tier }}"
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: search-engine
+      component: crawler
+      release: {{ .Release.Name }}
+      track: "{{ .Values.application.track }}"
+      tier: "{{ .Values.application.tier }}"
+  template:
+    metadata:
+      name: crawler
+      annotations:
+        checksum/application-secrets: "{{ .Values.application.secretChecksum }}"
+        {{ if .Values.gitlab.app }}app.gitlab.com/app: {{ .Values.gitlab.app | quote }}{{ end }}
+        {{ if .Values.gitlab.env }}app.gitlab.com/env: {{ .Values.gitlab.env | quote }}{{ end }}
+      labels:
+        app: search-engine
+        component: crawler
+        release: {{ .Release.Name }}
+        track: "{{ .Values.application.track }}"
+        tier: "{{ .Values.application.tier }}"
+    spec:
+      imagePullSecrets:
+      {{ toYaml .Values.image.secrets | indent 10 }}
+      containers:
+      - image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        name: crawler
+        env:
+        - name: GITLAB_ENVIRONMENT_NAME
+          value: {{ .Values.gitlab.envName }}
+        - name: GITLAB_ENVIRONMENT_URL
+          value: {{ .Values.gitlab.envURL }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- if .Values.application.secretName }}
+        envFrom:
+        - secretRef:
+            name: {{ .Values.application.secretName }}
+        {{- end }}
+        - name: MONGO
+          value: {{ .Values.mongoHost | default (printf "%s-mongodb" .Release.Name) }}
+        - name: MONGO_PORT
+          value: {{ .Values.mongoPort | default "27017" | quote }}
+        - name: MONGO_PASSWORD
+          value: {{ .Values.mongoPort | default "mongo-root-password" | quote }}
+        - name: RMQ_HOST
+          value: {{ .Values.rmqHost | default (printf "%s-rabbitmq" .Release.Name) }}
+        - name: RMQ_QUEUE
+          value: {{ .Values.rmqQueue | default "urls" | quote }}
+        - name: RMQ_USERNAME
+          value: {{ .Values.rmqUser | default "user" | quote }}
+        - name: RMQ_PASSWORD
+          value: {{ .Values.rmqPass | default "rabbitmq-password" | quote }}
+        - name: CHECKINTERVAL
+          value: {{ .Values.checkInt | default "600" | quote }}
+        - name: EXCLUDE_URLS
+          value: {{ .Values.excludeUrl | default ".*github.com" | quote }}

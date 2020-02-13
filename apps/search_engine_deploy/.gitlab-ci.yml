@@ -1,0 +1,136 @@
+image: alpine:latest
+
+#include:
+#  - template: Auto-DevOps.gitlab-ci.yml
+
+# Test jobs may be disabled by setting environment variables:
+# * test: TEST_DISABLED
+# * review: REVIEW_DISABLED
+# * stop_review: REVIEW_DISABLED
+#  REVIEW_DISABLED: "true"
+variables:
+  TEST_DISABLED: "true"
+  STAGING_ENABLED: "true"
+  POSTGRES_ENABLED: "false"
+  ROLLOUT_RESOURCE_TYPE: "deployment"
+  CODE_QUALITY_DISABLED: "true"
+  PERFORMANCE_DISABLED: "true"
+
+.auto-deploy:
+  image: "registry.gitlab.com/gitlab-org/cluster-integration/auto-deploy-image:v0.9.1"
+
+stages:
+  - test
+  - review
+  - cleanup
+  - staging
+  - production
+
+review:
+  extends: .auto-deploy
+  stage: review
+  variables:
+    host: $CI_PROJECT_PATH_SLUG-review.$KUBE_INGRESS_BASE_DOMAIN
+    commonName: le-$CI_PROJECT_ID.$KUBE_INGRESS_BASE_DOMAIN
+  environment:
+    name: gks/$CI_COMMIT_REF_NAME
+    url: http://$CI_PROJECT_PATH_SLUG-review.$KUBE_INGRESS_BASE_DOMAIN
+  script:
+    - auto-deploy check_kube_domain
+    - echo $KUBE_NAMESPACE
+    - auto-deploy download_chart
+    - auto-deploy ensure_namespace
+    - auto-deploy initialize_tiller
+    - kubectl describe namespace "$KUBE_NAMESPACE"
+    #- auto-deploy delete
+    #--dry-run
+    - HELM_UPGRADE_EXTRA_ARGS="--debug --set ui.service.host=${host} --set ui.service.commonName=${commonName}" auto-deploy deploy
+    - auto-deploy persist_environment_url
+  artifacts:
+    paths: [environment_url.txt]
+  only:
+    refs:
+      - master
+      - branches
+      - tags
+    kubernetes: active
+  except:
+    variables:
+      - $REVIEW_DISABLED
+
+stop_review:
+  extends: .auto-deploy
+  stage: cleanup
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - auto-deploy initialize_tiller
+    - auto-deploy delete
+  environment:
+    name: gks/$CI_COMMIT_REF_NAME
+    action: stop
+  when: manual
+  allow_failure: true
+  only:
+    refs:
+      - master
+      - branches
+      - tags
+    kubernetes: active
+  except:
+    variables:
+      - $REVIEW_DISABLED
+
+staging:
+  extends: .auto-deploy
+  stage: staging
+  variables:
+    host: http://$CI_PROJECT_PATH_SLUG-staging.$KUBE_INGRESS_BASE_DOMAIN
+  environment:
+    name: gks/staging
+    url: http://$CI_PROJECT_PATH_SLUG-staging.$KUBE_INGRESS_BASE_DOMAIN
+  script:
+    - auto-deploy check_kube_domain
+    - auto-deploy download_chart
+    - auto-deploy ensure_namespace
+    - auto-deploy initialize_tiller
+    - auto-deploy create_secret
+    - kubectl describe namespace "$KUBE_NAMESPACE"
+    - auto-deploy delete
+    - HELM_UPGRADE_EXTRA_ARGS="--force --debug --dry-run --set search_engine_ui.ingress.host="${host}" --set search_engine_ui.image.tag=latest --set search_engine_crawler.image.tag=latest" auto-deploy deploy
+    - auto-deploy persist_environment_url
+  artifacts:
+    paths: [environment_url.txt]
+  only:
+    refs:
+      - master
+    kubernetes: active
+    variables:
+      - $STAGING_ENABLED
+  when: manual
+
+production:
+  extends: .auto-deploy
+  stage: production
+  variables:
+    host: production
+  script:
+    - auto-deploy check_kube_domain
+    - auto-deploy download_chart
+    - auto-deploy ensure_namespace
+    - auto-deploy initialize_tiller
+    - auto-deploy create_secret
+    - HELM_UPGRADE_EXTRA_ARGS="--set search_engine_ui.ingress.host="$host" --set search_engine_ui.image.tag=latest --set search_engine_crawler.image.tag=latest"
+    - auto-deploy deploy
+    - auto-deploy persist_environment_url
+  environment:
+    name: gks/production
+    url: http://production.$KUBE_INGRESS_BASE_DOMAIN
+  artifacts:
+    paths: [environment_url.txt]
+  only:
+    refs:
+      - master
+    kubernetes: active
+  when: manual
+  allow_failure: false

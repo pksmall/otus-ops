@@ -1,0 +1,65 @@
+include:
+  - template: Auto-DevOps.gitlab-ci.yml
+
+# Test jobs may be disabled by setting environment variables:
+# * test: TEST_DISABLED
+# * code_quality: CODE_QUALITY_DISABLED
+# * license_management: LICENSE_MANAGEMENT_DISABLED
+# * performance: PERFORMANCE_DISABLED
+# * sast: SAST_DISABLED
+# * dependency_scanning: DEPENDENCY_SCANNING_DISABLED
+# * container_scanning: CONTAINER_SCANNING_DISABLED
+# * dast: DAST_DISABLED
+# * review: REVIEW_DISABLED
+# * stop_review: REVIEW_DISABLED
+variables:
+  CODE_QUALITY_DISABLED: "true"
+  STAGING_ENABLED: "true"
+  PERFORMANCE_DISABLED: "true"
+  REVIEW_DISABLED: "true"
+  POSTGRES_ENABLED: "false"
+  HELM_UPGRADE_EXTRA_ARGS: "--debug --set prometheus.metrics=true"
+
+test:
+  image: python:3.7
+  script:
+    - pip install -r requirements.txt
+    - pip install pylint pylint-junit
+#    - pylint --output-format=pylint_junit.JUnitReporter main.py | tee rspec.xml
+#  artifacts:
+#    paths:
+#      - rspec.xml
+#    reports:
+#      junit: rspec.xml
+#    when: always
+
+staging:
+  extends: .auto-deploy
+  stage: staging
+  environment:
+    name: gks/staging
+    url: http://$CI_PROJECT_PATH_SLUG-staging.$KUBE_INGRESS_BASE_DOMAIN
+  script:
+    - auto-deploy check_kube_domain
+    - auto-deploy download_chart
+    - auto-deploy ensure_namespace
+    - auto-deploy initialize_tiller
+    - auto-deploy create_secret
+    - kubectl describe namespace "$KUBE_NAMESPACE"
+    - auto-deploy delete
+    - auto-deploy deploy
+    - auto-deploy persist_environment_url
+  artifacts:
+    paths: [environment_url.txt]
+  only:
+    refs:
+      - master
+    kubernetes: active
+    variables:
+      - $STAGING_ENABLED
+  when: manual
+
+production_manual:
+  environment:
+    name: gks/production
+    url: http://production.$KUBE_INGRESS_BASE_DOMAIN

@@ -1,0 +1,62 @@
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ template "trackableappname" . }}
+  annotations:
+  {{ if .Values.global.gitlab.app }}app.gitlab.com/app: {{ .Values.global.gitlab.app | quote }}{{ end }}
+  {{ if .Values.global.gitlab.env }}app.gitlab.com/env: {{ .Values.global.gitlab.env | quote }}{{ end }}
+  labels:
+    app: {{ template "appname" . }}
+    component: {{ .Chart.Name }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    track: "{{ .Values.global.application.track }}"
+    tier: "{{ .Values.global.application.tier }}"
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: {{ template "appname" . }}
+      component: {{ .Chart.Name }}
+      release: {{ .Release.Name }}
+      track: "{{ .Values.global.application.track }}"
+      tier: "{{ .Values.global.application.tier }}"
+  template:
+    metadata:
+      annotations:
+        checksum/application-secrets: "{{ .Values.global.application.secretChecksum }}"
+        {{ if .Values.global.gitlab.app }}app.gitlab.com/app: {{ .Values.global.gitlab.app | quote }}{{ end }}
+        {{ if .Values.global.gitlab.env }}app.gitlab.com/env: {{ .Values.global.gitlab.env | quote }}{{ end }}
+      labels:
+        app: {{ template "appname" . }}
+        component: {{ .Chart.Name }}
+        release: {{ .Release.Name }}
+        track: "{{ .Values.global.application.track }}"
+        tier: "{{ .Values.global.application.tier }}"
+    spec:
+      containers:
+      - image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        name: {{ .Chart.Name }}
+        ports:
+        - containerPort: {{ .Values.service.internalPort }}
+          name: {{ .Chart.Name }}
+          protocol: TCP
+        env:
+        - name: GITLAB_ENVIRONMENT_NAME
+          value: {{ .Values.global.gitlab.envName }}
+        - name: GITLAB_ENVIRONMENT_URL
+          value: {{ .Values.global.gitlab.envURL }}
+        - name: MONGO
+          value: {{ .Values.mongoHost | default (printf "%s-mongodb" .Release.Name) }}
+        - name: MONGO_PORT
+          value: {{ .Values.mongoPort | default "27017" | quote }}
+        - name: MONGO_PASSWORD
+          value: {{ .Values.mongoPort | default "mongo-root-password" | quote }}
+        - name: ENV
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace

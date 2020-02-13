@@ -1,0 +1,8 @@
+---
+name: crawler
+version: 0.0.1
+description: OTUS search engine crawler
+maintainers:
+  - name: Pavel Korzhenko
+    email: pavel@korzhenko.info
+appVersion: 1.0
