@@ -39,20 +39,23 @@ $docker_machine create --driver google --google-project=$GOGLE_PROJECT_ID \
  --google-open-port 443/tcp \
  --google-open-port 2222/tcp \
  --google-open-port 2376/tcp \
+ --google-open-port 5050/tcp \
  --google-zone $REGION \
  gitlab-host
-
-# create docker-compose file
-cat docker-compose.yml.tpl | sed -e "s/YOUHOSTNAME/${MY_DOMAIN_NAME}/g" | sed -e "s/YOUIP/${GITLAB_IP}/g" > docker-compose.yml
-
-# run docker-compose in the remote docker host
-eval $($docker_machine env gitlab-host)
-docker-compose up -d
-
-# exit from the remote host
-eval $($docker_machine env --unset)
 
 # get vpc ip
 GITLAB_IP=$($docker_machine ip gitlab-host)
 echo "Add this IP in your DNS as gitlab.your-domain-name"
 echo $GITLAB_IP
+
+if [ ! -z "$GITLAB_IP" ]; then
+    # create docker-compose file
+    cat docker-compose.yml.tpl | sed -e "s/YOUHOSTNAME/${MY_DOMAIN_NAME}/g" | sed -e "s/YOUIP/${GITLAB_IP}/g" > docker-compose.yml
+
+    # run docker-compose in the remote docker host
+    eval $($docker_machine env gitlab-host)
+    docker-compose up -d
+
+    # exit from the remote host
+    eval $($docker_machine env --unset)
+fi
